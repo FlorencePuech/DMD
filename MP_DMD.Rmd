@@ -1,0 +1,794 @@
+---
+title: "Measuring local biodiversity with Diversity Measures at Distance"
+author:
+- name: Eric Marcon
+  authsuperscript: "1 \\orcidlink{0000-0002-5249-321X}"
+- name: Florence Puech
+  authsuperscript: "2 \\orcidlink{0000-0002-5279-6878}"
+corrauthor:
+  email: "florence.puech@universite-paris-saclay.fr"
+affiliation:
+- affsuperscript: 1
+  dptuniv: "AgroParisTech, UMR Amap, Univ. Montpellier, Cirad, CNRS, INRAE, IRD, Montpellier, France."
+- affsuperscript: 2*
+  dptuniv: "Université Paris-Saclay, INRAE, AgroParisTech, Paris-Saclay Applied Economics, F-91120, Palaiseau, France."
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+abstract: |
+  This study introduces a new class of biodiversity measurement - the Diversity Measures at Distance - which enables diversity evaluation at any scale of observation and provides interpretative values of the results.
+  The new class of measures are based on geolocalized data and quantify local diversity very precisely. 
+  Diversity values are interpreted using the Hill numbers (Hill, 1973).
+  We propose visualizing the results by plotting them in a detailed and intelligible map of the local diversity at a chosen scale. 
+  After introducing our methodology, we conduct the first application as a proof of concept, measuring the local biodiversity in the *Parc des Buttes Chaumont* in Paris. 
+  Our proposed application illustrates the great potential of this new approach and paves the way for future research.
+  Results and maps of local biodiversity levels are provided in addition to data and R code for reproducible research.
+
+
+keywords:
+- "Diversity Measures at distance - DMD"
+- biodiversity
+- spatial structure
+- Parisian trees
+- Hill numbers
+journalinfo: Working paper
+archive: "`r format(Sys.time(), '%B %d, %Y')`"
+url: https://FlorencePuech.github.io/DMD/
+github-repo: FlorencePuech/DMD
+lang: "en-US"
+keywordlabel: Keywords
+corrauthorlabel: Corresponding Author
+authorseparator: ' and '
+bibliography: references.bib
+biblio-style: chicago
+fontsize: 10pt
+urlcolor: blue
+always_allow_html: true
+csquotes: true
+toc-depth: 3
+output:
+  bookdown::pdf_book:
+    template: latex/template.tex
+    citation_package: natbib
+    latex_engine: xelatex
+    keep_tex: false
+  bookdown::html_document2:
+    base_format: distill::distill_article
+    toc: true
+    toc_float: true
+  bookdown::word_document2:
+    reference_docx: template.docx
+---
+
+```{r}
+#| label: DoNotModify
+#| include: false
+### Utilities. Do not modify.
+# Installation of packages if necessary
+install_packages <- function(packages) {
+  install_package <- function(package) {
+    if (!package %in% installed.packages()[, 1]) {
+      install.packages(package, repos = "https://cran.rstudio.com/")
+    }
+  }
+  invisible(sapply(packages, install_package))
+}
+
+# Basic packages
+install_packages(c("bookdown", "formatR", "kableExtra", "ragg"))
+
+# Chunk font size hook: allows size='small' or any valid Latex font size in chunk options
+def.chunk.hook  <- knitr::knit_hooks$get("chunk")
+knitr::knit_hooks$set(chunk = function(x, options) {
+  x <- def.chunk.hook(x, options)
+  ifelse(
+    options$size != "normalsize", 
+    paste0("\n \\", options$size,"\n\n", x, "\n\n \\normalsize"), 
+    x
+  )
+})
+```
+
+```{r}
+#| label: Options
+#| include: false
+### Customized options for this document
+# Add necessary packages here
+packages <- c(
+  "tidyverse",
+  "sf",
+  "igraph",
+  "ggspatial",
+  "dbmss",
+  "divent",
+  "ggpubr"
+)
+# Install them
+install_packages(packages)
+
+# knitr options
+knitr::opts_chunk$set(
+  cache =   TRUE,    # Cache chunk results
+  include = FALSE,   # Show/Hide chunks
+  echo =    FALSE,   # Show/Hide code
+  warning = FALSE,   # Show/Hide warnings
+  message = FALSE,   # Show/Hide messages
+  # Figure alignment and size
+  fig.align = 'center', out.width = '100%',
+  # Graphic devices (ragg_png is better than standard png)
+  dev = c("ragg_png", "pdf"),
+  # Code chunk format
+  tidy = TRUE, tidy.opts = list(blank = FALSE, width.cutoff = 50),
+  size = "scriptsize", knitr.graphics.auto_pdf = TRUE
+  )
+options(width = 50)
+
+# ggplot style
+library("tidyverse")
+theme_set(theme_bw())
+theme_update(
+  panel.background = element_rect(fill = "transparent", colour = NA),
+  plot.background = element_rect(fill = "transparent", colour = NA)
+)
+knitr::opts_chunk$set(dev.args = list(bg = "transparent"))
+
+# Random seed
+set.seed(973)
+```
+
+<!-- 
+# Highlights {-}
+
+- The Diversity Measures at Distance (DMD) is a new class of biodiversity measurement.
+- The DMD is developed in a continuous-space framework using Hill numbers.
+- Interpretation of local diversity whatever the scale and the entropy measure used.
+- We propose simple DMD computation with R and explicit mapping of local diversity.
+- As a proof of concept, we apply DMD to evaluate the biodiversity of a Parisian park.
+
+-->
+
+# Introduction
+
+Biodiversity and its conservation are a key challenge of contemporary times [@IPBES2019; @IPBES2023], and evaluating biodiversity is the first step for any analysis or policy development.
+Therefore, measuring biodiversity precisely and making its results intelligible is essential for biodiversity analysis and the subsequent estimation of the costs associated with biodiversity erosion [@Turbelin2023].
+Biodiversity covers all forms of living organisms; thus, many different approaches and definitions have been proposed for its evaluation.
+A certain number of biological diversity measures are very well-known and largely used (e.g., the Shannon index or the Simpson index) while others remain quite confidential [@Krebs1999; @Marcon2024].[^1]
+While previous research has emphasized that diversity measures should be rigorously developed because each indicator responds to a particular definition of diversity, the scale at which diversity has to be evaluated is less discussed. 
+Diversity level has generally been estimated within a predefined zone; for example, plots in forests [@Broadent2008] or regions such as the French Small Agricultural Regions [@Donfouet2017; @Cocco2023].
+To the best of our knowledge, no approach has been developed to simultaneously assess local diversity (*i*) for any distance of an environment analyzed and (*ii*) for any chosen definition of diversity.
+This study fills the gap by providing a new class of indicators called Diversity Measures at Distance (DMD), which are based on the Hill numbers [@Hill1973] and make it possible to interpret diversity results regardless of the entropy measure used.
+The **divent** R package [@divent2025] offers simple DMD computation and explicit mapping of local diversity.
+
+[^1]: In our study, the term "biodiversity" is used when diversity concerns a topic directly related to biology or ecology, and the term "diversity" is retained otherwise.
+
+We expect our proposed DMD to be of considerable interest to researchers in many fields.
+For example, consider a case of a disease contagion that affects biodiversity.
+If we suppose that biotic factors are greater at small scales [@Cohen2016] and if we suspect that interactions between species occur at very small distances, biodiversity must be precisely measured at a very small scale and at any point of the territory.
+Diversity evaluations at a large scale are far less pertinent in such cases than those made in a close environment.
+The reason is that such contagions affect immediate neighbors, not those located at large distances.
+Measuring diversity at too large a scale is insufficiently informative for identifying infested areas.
+In that sense, DMD enables a more comprehensive understanding of the underlying interactions between the species analyzed.
+Such local diversity evaluations are essential and offer a considerable opportunity to limit the economic costs associated with contagious diseases in terms of monitoring, mitigation, and treatment.
+
+
+The remainder of this paper is organized as follows.
+Section 2 provides a review of contemporary diversity indices.
+As we show, any index has a specific meaning in gauging biodiversity; therefore, the use of a given index must be constructed with care and motivates our analysis to examine various indicators.
+This section also introduces Hill numbers [@Hill1973] that are at the basis of the DMD.
+We explain why Hill numbers are essential to correctly quantify diversity.
+We then introduce the DMD in Section 3, presenting the statistical framework and associated utility in measuring diversity.
+Section 4 presents an empirical application for evaluating biodiversity with the DMD that is focused on the diversity of tree species located in the *Parc des Buttes Chaumont* in Paris.
+Our results demonstrate that species biodiversity varies greatly inside the park, and this finding remains robust regardless of the local scale used or the definition of biodiversity applied.
+The results confirm that a park-wide estimation of diversity obviously masks local disparities of diversity that DMD on the contrary perfectly grasp.
+In Section 5, we conclude by highlighting the utility of the DMD for environmental economics application and discuss future research in the field.
+
+# Diversity indices: a review of the most common diversity indices {#review}
+
+Numerous diversity measures coexist in previous research [@Marcon2024].
+Some are well-known and applied in many applications and others remain quite confidential.
+The richness, the Shannon index, and the Simpson index are among the best known and most widely used to evaluate biodiversity.
+In this section, we present and discuss these three indices.
+For clarity, we consider trees as a taxonomic group in the following illustrative examples.[^2] Each tree is associated with a unique species and the biodiversity level is based on an indicator that quantifies tree species diversity.
+
+[^2]: This is not a strong assumption because studies that used biodiversity measures have generally only focused one taxonomic group, e.g., @Zilliox2014.
+
+## Richness {#Richness}
+
+Richness is the most simple and intuitive index to present.
+If we focus on species, species richness is defined as the total number of different species located in the area under study [@McIntosh1967].
+Practically, a higher number of species indicates higher diversity.
+According to this definition, the number of individuals per species (i.e., *abundance*) is not considered as the diversity measurement captured by species richness only concerns the number of different species located on the area under study.
+As a result, the diversity of two forests with the same number of species will be exactly the same, regardless of the number of trees located in each forest.
+In practice, measurement difficulty is related to territories for which an exhaustive count of all individuals is challenging (e.g., for tropical forest), wherein rare species may not be observed and richness is underestimated.
+More sophisticated techniques based on nonparametric methods may be useful in such cases, and developments have been proposed following @Chao1984 or @Burnham1979.
+
+## Shannon index {#Shannon}
+
+The Shannon index [@Shannon1948] integrates the abundance of species to measure diversity.
+To understand the Shannon index intuitively, we will use the following example.
+Consider a forest where each tree is only characterized by its species.
+In more technical terms, consider an experiment with $S$ possible outcomes denoted $\{r_1, r_2,... r_s,..., r_S\}$.
+In our case, the outcomes correspond to the species of an observed tree.
+The *rarity* of species is defined as ${1}/{p_s}$, where $p_s$ is the probability of obtaining the outcomes $r_s$ among the *S* experimental outcomes.
+The minimum value of rarity is 1, which is obtained if only one species is present.
+The maximum value is reached when species *s* is rare, in which case, $p_s$ is extremely small and rarity tends toward infinity.
+The logarithm of rarity is the Shannon information function denoted as $I(p_s)$, which decreases when $p_s$ increases.
+If $p_s$ tends toward zero, then the information tends toward infinity and it takes a value of 0 if $p_s$ equals to 1.
+As @Marcon2019 argued, the information function can be understood as a quantity of surprise.
+If a species is rare (e.g., $p_s$ is small), the quantity of information for that outcome is high, and as a consequence, $I(p_s)$ is high.
+In contrast, if some species are abundant, the quantity of surprise associated with its outcome is low, as is the information function.
+The Shannon entropy index is defined as the average information given by all possible outcomes of the experience as follows:
+
+\begin{equation}
+  \sum_s{p_s \ln\frac{1}{p_s}}
+  (\#eq:shannon)
+\end{equation}
+
+The Shannon index determines the level of the average information generated by a random draw of an individual.
+Shannon called this entropy by analogy with statistical physics, referencing the characterization of the complexity of gas particles by Boltzmann [1877, translated by @Sharp2015].
+However, no simple, intuitive interpretation of the numerical value of Shannon's entropy has been produced.
+We will return to this point in the discussion.
+
+## Simpson index {#Simpson}
+
+The \cite{Simpson1949} index can be understood as the probability of drawing two entities that belong to two different species.
+If we retain the same notations as in the Shannon index equation, the Simpson index can be defined as follows:
+
+\begin{equation}
+  1-\sum_s{{p_s}^2}
+  (\#eq:simpson)
+\end{equation}
+
+The minimum value of the Simpson index is 0, which occurs when a species has a probability of being drawn of 1.
+The maximum value is 1, which occurs with a large number of species, which makes $p_s$ close to 0.
+Therefore, any diversity value can be obtained between these two extreme cases.
+
+## Unification: Generalized entropy {#Discussion}
+
+Classical biodiversity indices can be unified using information theory.
+Richness and Simpon's indices can be understood as variations of the Shannon index wherein the information function is respectively $(1 - p_s) / p_s$ and $1 - p_s$.
+
+An elegant unification [@Marcon2014a] is possible using the generalized entropy proposed by @Tsallis1994.
+The deformed logarithm of order *q*, where *q* is a parameter, is a function that deforms the natural logarithm by changing its curvature but remains an increasing function and respects $ln_q{1}=0$.
+The deformed logarithm of order *q* is defined as follows:
+
+\begin{equation}
+  \begin{cases}
+    \ln_q{x} &= \frac{x^{1-q} - 1}{1 - q}, q \ne 1 \\
+    \ln_1{x} &= \ln x
+  \end{cases}
+  (\#eq:deform) 
+\end{equation}
+
+The three common diversity indicators presented above constitute particular cases of the generalized Tsallis entropy.
+The definition of the Shannon index (eq. \@ref(eq:shannon)) can be generalized as follows:
+
+\begin{equation}   
+  ^{q}H = \sum_s{p_s \ln_q\frac{1}{p_s}}
+  (\#eq:meandeform) 
+\end{equation}
+
+Special values of *q* define *orders* of entropy as follows:
+
+- If *q=0*, equation \@ref(eq:meandeform) reduces to $\sum_s{p_s(\frac{1}{p_s}-1)}$, which equals the number of species minus 1 and is denoted as $^{0}H$.
+- If *q=1*, the generalized entropy is simply Shannon's entropy, denoted as $^{1}H$.
+- If *q=2*, we obtain a value $1-\sum_s{{p_s}^2}$ in equation \@ref(eq:meandeform), which is the Simpson index, denoted as $^{2}H$.
+
+These three *q* values are the most used, but are not exclusive [@Baumgartner2007; @Marcon2019].
+Equation \@ref(eq:meandeform) defines the entropy of order *q* as the average information from individual observations, where the information is a deformed logarithm of species rarity.
+Parameter *q* can be understood as the instrument for assigning more or less importance to rare species.
+Small values emphasize them, where a species with a single individual counts for 1 in richness (*q=0*), not less than a species that encompasses all individuals but 1: in this example richness is 2.
+
+Increasing *q* lowers the rare species count.
+The Simpson's entropy of our example is close to 0, as if the rare species did not exist.[^3]
+
+[^3]: Specifically, abundances of abundant and rare species are $n - 1$ and 1 with $n \gg 1$.
+    Then, $^{2}H \approx 2 / n$, which is close to 0.
+
+## Hill numbers {#DMD}
+
+The Hill numbers of order $q$ [@Hill1973] are the number of equiprobable species that obtains the same entropy as the observed distribution.
+Hill numbers can be computed as the deformed exponential of entropy as follows:
+
+\begin{equation}      
+  ^{q}D = e_q^{^{q}H}   
+  (\#eq:diversity)  
+\end{equation}
+
+where the deformed exponential is the reciprocal function of the following deformed logarithm:
+
+\begin{equation}
+  \begin{cases}
+    e_q^{x} &= (x(1 - q) + 1)^{\frac{1}{(1 - q)}}, q \ne 1 \\
+    e_1^{x} &= e^x    
+  \end{cases}
+  (\#eq:exp)  
+\end{equation}
+
+Hill numbers enable an intuitive understanding of entropy.
+We present the following example to explain this more clearly.
+Imagine that 4 is the estimated Hill number of order 1 that measures the diversity of tree species in a park.
+This means that four tree species in the park with the same probability of apparition (each one equal to $1/4$) would constitute the park's Shannon's entropy.
+This entropy is $ln(4) \approx 1.4$; a value that cannot be easily interpreted.
+Hill numbers reduce the complexity of diversity indices to a single value for each order, which is also called the *effective number of species*.
+
+## Discussion {#discussion}
+
+A series of remarks can be drawn from this short presentation of the most traditional diversity measurements.
+
+**Diversity can be evaluated in multiple ways.** Different concepts of diversity can be explored, resulting in different measurements.
+As a consequence, using one given index should thus be carefully considered, e.g., see @Dickman1968, @Peet1974 or more recently, @Morris2014, @Nagendra2002.
+Diversity indices should always be motivated by the research question under study, as is the case for any quantitative indices [@Marcon2017].
+Here, we only consider species-neutral measures of diversity, ignoring species' identity and considering them equally different, in contrast to phylogenetic [@Marcon2014b] or functional [@Leinster2012] diversity that consider dissimilarity but are beyond our scope.
+Therefore, the choice of one specific diversity index is only driven by the importance assigned to rare species.
+Species richness is a central measure for conservation purposes while Simpson's diversity is a better tool for assessing community functioning, e.g., carbon storage, driven by a dominant species [@Liang2016].
+
+While the three classical indices are the most used, it is **difficult to interpret entropy measures** [@Jost2006] beyond the special orders 0 and 2.
+In contrast, the Hill numbers make diversity immediately intelligible as the dimension is the number of species, which can be compared between different orders of diversity wherein a diversity profile plots diversity with respect to its order [@Tothmeresz1995].[^4]
+Hill numbers enable a comparison of two entities' diversity, e.g., two parks, at all orders.
+
+[^4]: A diversity profile is presented in Figure \@ref(fig:ProfileHill) for the DMD empirical application proposed in this study.
+
+@Jost2006 argued that only the Hill numbers should be called *diversity*, while classical indices should be called *entropy*.
+Both are more than indices; they are *measures* of diversity [@Jost2009].
+The Hill numbers refer to the number of species, and entropy concerns the amount of information.
+
+# Introducing Diversity Measures at Distance {#DMD2}
+
+A unified framework for local diversity measurement based on an entropy framework has not yet been conceived in the literature.
+Our proposed DMD fills this gap by presenting a continuous framework for evaluating biodiversity in three steps.
+
+**Step 1: The choice of the distance.** Diversity is measured around each entity analyzed at distance *r*, which can take any value (e.g., 5 meters, 10 meters, 50 meters etc.) required by the underlying model or theoretical assumptions of the research question.
+For example, if we are examining a contagious disease that spreads between trees and we suspect that the level of biodiversity matters, this should be calculated at a very small radii *r* around each tree.
+
+**Step 2: Choosing the order of diversity.** This choice determines the value of $q$ for the Hill number.
+One decision rule is the importance assigned to rare or abundant species.
+If the researcher wants to treat all species in the same way, *q=1* is a reasonable choice in ecology (e.g., see the discussion in @Roswell2021 on this point).
+
+**Step 3: Visualizing the results.** Mapping the calculated Hill numbers is highly convenient for illustrating all results.
+Therefore, we proceed as follows.
+First, we calculate the entropy at order *q* around each geolocalized entity for the chosen distance *r*.
+We then calculate the estimated Hill numbers around each entity by taking the exponential of entropy values.
+We then apply a spatial smoothing of values to plot them across the area for visualization, using the *Smooth.ppp()* function of the R package Spatstat, [@Baddeley2005].
+We employ Gaussian kernel smoothing with the bandwidth as defined by @Scott1992.
+We recommend the use of contour lines that identify similar values to Hill numbers' estimates.
+We then use the new R package (divent) to compute DMD [@divent2025].
+This R package facilitates researchers' use of R code to calculate DMD and visualize their results.
+
+# Empirical application on trees in the *Parc des Buttes Chaumont* (Paris) {#Application}
+
+As proof of concept, we apply DMD to evaluate the biodiversity of the *Parc des Buttes Chaumont*, a Parisian park located in the 19^th^ arrondissement that was established in 1867 and is an considerably large park area in the northeast of Paris of an approximate 25-hectare area.[^5]
+
+[^5]: The history and outstanding construction of the park are detailed in @Komara2009.
+
+We only base biodiversity evaluation in *Parc des Buttes Chaumont* analyzing trees.
+Among all taxa, trees seem to be particularly noteworthy for park users [@Muratet2015].
+We obtain the geolocalization of trees and their characteristics from *Paris open data*, which is available at: <https://opendata.paris.fr>.[^6]
+This database contains more 200,000 trees inventoried in the majority of spaces managed by the city of Paris.
+All results and maps of local biodiversity levels are provided in the appendix in addition to data and R code for reproducible research.
+
+[^6]: The database Arbres, Direction des Espaces Verts et de l'Environnement - Ville de Paris, February 2025, under license ODbL.
+
+
+
+```{r}
+#| label: Data
+library("tidyverse")
+library("sf")
+# Get the data
+if (file.exists("data/BC_Lambert.RData")) {
+  # Dataset
+  load("data/BC_Lambert.RData")
+} else {
+  # Build the dataset from scratch
+  if (!file.exists("data/les-arbres.geojson")) {
+    # Download the original data file if it does not exist (100 MB)
+    download.file(
+      "https://opendata.paris.fr/explore/dataset/les-arbres/download/?format=geojson",
+      destfile = "data/les-arbres.geojson"
+    )
+  }
+  # Project the dataset into Lambert CRS
+  st_read("data/les-arbres.geojson") %>%
+    # Keep Buttes-Chaumont trees only
+    filter(str_detect(adresse, "PARC DES BUTTES CHAUMONT")) %>%
+    # Lambert (standard in France) CRS
+    st_transform(crs = 2154) -> BC_Lambert
+}
+# Clean-up the data
+BC_Lambert %>% 
+  # Remove useless columns
+  select(
+    -typeemplacement, -domanialite, -arrondissement,
+    -complementadresse, -adresse,
+    -idemplacement, -varieteoucultivar,
+    -stadedeveloppement, -remarquable, -geo_point_2d
+  ) %>% 
+  # Remove NAs
+  filter(
+    !is.na(genre)
+  ) %>% 
+  mutate(
+    # Binomial botanic species name
+    genre_espece = paste(
+      genre, 
+      # Undetermined species are denoted sp. (correct) or n. sp. or NA
+      ifelse(is.na(espece) | espece == "n. sp.", "sp.", espece)
+    ),
+    # radius
+    diameter = circonferenceencm / pi,
+    # Basal area
+    G = circonferenceencm^2 / 4 / pi
+  ) %>% 
+  # Factorize character columns
+  mutate(across(where(is_character),as_factor)) -> 
+  BC_trees
+```
+
+
+
+
+```{r}
+#| label: Distribution
+#| out.width: 80%
+#| fig-cap: "(ref:Distribution)"
+#| fig.env: "figure*"
+#| out.extra: ""
+#| include: true
+library("dbmss")
+BC_trees %>% 
+  # Point type and point weight
+  select(genre, diameter) %>% 
+  rename(PointType = genre, PointWeight = diameter) %>% 
+  # Get the coordinates
+  bind_cols(st_coordinates(.)) %>% 
+  # dataframe needed by as.wmppp()
+  as_tibble() %>% 
+  # Make a point pattern
+  as.wmppp(
+    unitname = c("meter", "meters")
+  ) -> BC_wmppp_genera
+# Limits of the park
+library("divent")
+Window(BC_wmppp_genera) <- alphahull(BC_wmppp_genera, alpha = 50)
+# Map
+library("ggspatial")
+autoplot(BC_wmppp_genera) +
+  # Show the points at scale: max radius, in meters, 
+  # twice bigger for readability
+  scale_radius(range = c(0, max(BC_trees$diameter / 2 / 100 * 2))) +
+  labs(color = "Genus", size = "Diameter") +
+  theme(
+    panel.grid.major = element_line(color = "gray50", linetype = "dotted"),
+  ) +
+  # Scale position: bottom right
+  annotation_scale(location = "br") +
+  # North arrow
+  annotation_north_arrow(
+    pad_x = unit(9, "cm"),
+    pad_y = unit(1, "cm"),
+    style = north_arrow_fancy_orienteering()
+  )
+```
+
+## Overview of the area {#Data}
+
+The geolocalized positions of trees in the *Parc des Buttes Chaumont* is provided in addition to some characteristics, notably their genus, species, and circumference.
+We retain the circumference to calculate trees' diameter, which we use as a proxy of their trunk area cut 1.3 meters above ground ("at breast height" in forestry vocabulary).
+The spatial distribution of trees in February 2025 is presented in Figure \@ref(fig:Distribution).
+
+
+(ref:Distribution) **Spatial distribution of trees in the *Parc des Buttes Chaumont*.**\
+Note: Distribution is obtained from Paris Open Data in February 2025. The most abundant genera are presented in decreasing order. Coordinates on both axes are in meters (Lambert 93 projection) and diameters are in centimeters. We magnified the visualization of individual diameters twice for improved readability.
+
+
+A total of `r BC_wmppp_genera$n` trees are distributed across the park, with the exception of the lake at the center of the park that surrounds an island, grassy areas (notably, south of the lake), paths, and the railway, which is easily identified by the straight line at the eastern part of the park.
+The most frequent trees are of the genera *Taxus* (yews), *Acer* (maples), and *Pinus* (pines), representing more than the half of the trees in the park.
+Yews and pines are highly overrepresented in some portions of the park, as illustrated in Figure \@ref(fig:Distribution).
+If we consider the species of trees (and not only genus), only four -the common yew (*Taxus baccata*), the black pine (*Pinus nigra*), the sycamore maple (*Acer pseudoplatanus*) and the horse chestnut (*Aesculus hippocastanum*)- represent around the half of the total number of tree species in the *Parc des Buttes Chaumont*.
+
+## Measuring diversity at the park level
+
+```{r}
+#| label: Diversity
+# Build the species distribution object
+BC_trees %>% 
+  pull(genre_espece) %>% 
+  as_species_distribution() -> 
+  BC_sad
+# Compute richness at the observed level
+BC_richness <- div_richness(
+  BC_sad, 
+  estimator = "naive", 
+  as_numeric = TRUE
+)
+# Compute Shannon's entropy at the observed level
+BC_Shannon <- ent_shannon(
+  BC_sad, 
+  estimator = "naive", 
+  as_numeric = TRUE
+)
+# Diversity of order 1
+BC_D1 <- exp(BC_Shannon)
+# Compute Simpson's entropy at the observed level
+BC_Simpson <- ent_simpson(
+  BC_sad, 
+  estimator = "naive", 
+  as_numeric = TRUE
+)
+# Diversity of order 2
+BC_D2 <- 1 / (1 - BC_Simpson)
+```
+
+In the first step, we compute the three common entropy indices park-wide, emphasizing two main results.
+
+- Richness is `r BC_richness`, indicating that `r BC_richness` species are inventoried across the park.
+This level of richness is quite high because many trees were intentionally planted; therefore, the diversity level in the park is greater than that observed in European forests [@Slick2015].
+- Over the entire *Parc des Buttes Chaumont*, the Shannon index is estimated to be `r format(BC_Shannon, digits=3)` and the Simpson index is `r format(BC_Simpson, digits=2)`.
+@Galle2021 noted that ecological studies have predominantly elicited Shannon index values between 1.5 and 3.5, but these values are difficult to interpret.
+
+In the second step, we estimate the Hill numbers for the entire park as a unique site to determine the number of equiprobable outcomes that have the same entropy as the observed system [@Hill1973].
+Figure \@ref(fig:ProfileHill) presents the results, which is called a diversity profile [@Tothmeresz1995].
+All orders of diversity are represented because they have the same unit value; the number of species.
+The value of the classical orders of diversity are presented in the plot.
+Shannon's diversity ($q=1$) equals the exponential of Shannon's entropy of `r format(BC_D1, digits=2)`.
+This diversity value means that `r format(BC_D1, digits=2)` species with the same probability of occurrence have the same diversity of order 1 as the *Parc des Buttes Chaumont*.
+
+Simpson's diversity is `r format(BC_D2, digits=2)`.
+Diversity is a decreasing function of its order as rare species are increasingly neglected when $q$ rises and less equiprobable species are needed to provide the observed level of diversity.
+If all species were actually equiprobable, then the diversity profile would be flat and diversity would equal richness, regardless of the order considered.
+
+This result is noteworthy but it certainly masks some fluctuations in diversity that may appear inside the park, at a thinner level than park-wide.
+The local diversity analysis presented in the next subsection will provide an answer.
+
+(ref:ProfileHill) **Profile of the Hill numbers on the entire *Parc des Buttes Chaumont* in 2025.**\
+Note: Diversity is plotted based on order wherein richness corresponds to order 0, Shannon's index to order 1, and Simpson's index to order 2. Calculations are based on Paris Open Data in February 2025.
+
+```{r}
+#| label: ProfileHill
+#| fig-cap: "(ref:ProfileHill)"
+#| include: true
+BC_sad %>% 
+  # Build the diversity profile
+  profile_hill(estimator = "naive") %>%
+  # Plot it
+  autoplot() +
+  # No legend
+  theme(legend.position = "none")
+```
+
+## Measuring local diversity with DMD {#Results}
+
+### Local biodiversity maps {#LocalMaps}
+
+As a proof of concept, we evaluate the local diversity of trees in *Parc des Buttes Chaumont* based on richness, Shannon, and Simpson indices for distances of 5 meters and 25 meters.
+
+In what follows, we only consider diversity using Hill numbers to enable interpretation of the diversity results for any entropy measure or local distance.
+As expected, the results enable the continuous measurement of local biodiversity levels across the park.
+All maps in Figure \@ref(fig:DiversityMap) are interpretable in terms of effective numbers of species and the Hill numbers are directly observed on scale or contour lines that offer an easy illustration of local diversity levels.
+The gradient of colors helps to identify areas with high local biodiversity (warm colors) and those with low local biodiversity (cold colors).
+
+
+(ref:DiversityMap) **Local tree diversity (Hill numbers) in the *Parc des Buttes Chaumont*.** \
+Note: Orders of diversity are 0 (first row), 1 (second row), and 2 (third row). Distances are 5 meters (first column) and 25 meters (second column). Distribution is based on Paris Open Data in February 2025. Coordinates on both axes are in meters (Lambert 93 projection).
+
+```{r}
+#| label: DiversityMap
+#| fig-cap: "(ref:DiversityMap)"
+#| fig.env: "figure*"
+#| out.extra: ""
+#| include: true
+#| fig.asp: 1.2
+# Make a wmppp with species, all trees have weight 1
+BC_trees %>% 
+  # Point type
+  select(genre_espece) %>% 
+  rename(PointType = genre_espece) %>% 
+  # Point weight
+  mutate(PointWeight = 1) %>% 
+  # Get the coordinates
+  bind_cols(st_coordinates(.)) %>% 
+  # dataframe needed by as.wmppp()
+  as_tibble() %>% 
+  # Make a point pattern
+  as.wmppp(
+    unitname = c("meter", "meters")
+  ) -> BC_wmppp_species
+# Limits of the park already computed
+Window(BC_wmppp_species) <- Window(BC_wmppp_genera)
+# Spatial accumulation of diversity
+accum_r <- accum_sp_hill(
+  BC_wmppp_species,
+  # Richness, Shannon and Simpson
+  orders = 0:2,
+  # 5 and 25 meters. O is mandatory.
+  r = c(0, 5, 25),
+  # Save individual neighborhoods
+  individual = TRUE
+)
+# 3 rows, 2 columns for the figure
+op <- par(
+  mfrow = c(3, 2),
+  # Outer right margin must not be 0 to show the legends 
+  oma = c(0, 0, 0, 1)
+)
+# Plots
+for (q in 0:2) {
+  for (r in c(5, 25)) {
+    plot_map(
+      accum_r, 
+      q = q, 
+      neighborhood = r, 
+      dim_x = 512, 
+      dim_y = 512
+    )
+    # Show order and distance on the plot
+    text(
+      x = 654520, 
+      y = 6864900, 
+      paste0("q=", q, ", r=", r)
+    )
+  }
+}
+# Restore parameters
+par(op)
+```
+
+### Key results on local biodiversity provided by DMD {#LocalResults}
+
+-   *Result 1: Levels of biodiversity observed across the park vary greatly.*
+
+This result is obtained regardless of the map considered; therefore, we confirm that diversity estimations of *Parc des Buttes Chaumont* at the scale of the park obviously mask local disparities in diversity.
+Regardless of the measure of diversity or distance used, we can easily and clearly identify some areas characterized with high biodiversity values and others with medium or low biodiversity.
+This confirms that a park-wide biodiversity estimation may be too crude to accurately characterize the observed biodiversity.
+
+-   *Result 2: The choice of local scale matters when measuring diversity.*
+
+Small distances (5 meters) enable the identification of local areas with high biodiversity.
+At this scale, diversity is essentially richness, which is almost constant with respect to its order because very few trees are included in a 5-meter radius and most species have abundance 1.
+Larger distances provide smoother biodiversity evaluations.
+Comparing local diversity maps of *Parc des Buttes Chaumont* at distances 5 and 25 meters first reveals that diversity is higher when a greater distance is considered because more trees are included, thus more species.
+Increasing the distance up to the size of the park would yield increasingly homogenous maps, with diversity levels tending toward those of the whole park given above.
+However, diversity may accumulate more slowly in some areas; for example, the relatively high diversity in the northwestern side of the park at small scale (close to 2 effective species at 5 meters) appears to be relatively low at the 25-meter scale.
+The choice of the distance is crucial, depending on the scale of the question under study.
+
+# Implications for environmental economics {#implication}
+
+## Main improvements
+
+Our proposed DMD approach responds to different objectives.
+
+**First, our methodology enables biodiversity measurement as a multiscale phenomenon.** As interactions within the living world can be observed from very microscopic to broad levels, indicators at any geographical scale can be easily integrated.
+This framework is possible by adopting an internal perspective that is from every entity composing the taxonomic group(s) under study and not from an external perspective.
+Employing the distance surrounding the entities that compose the taxonomic group(s) seems to be an effective research approach for accurately determining the effect of their environment.
+Some studies have previously noted the importance of precisely considering the scale of observation for understanding the effects of different taxonomic groups on the environment.
+For example, @Brunbjerg2018 focused on this point for birds, bats, bees, and hoverflies, and @Marcon2023 about contagious diseases in trees.
+
+A notable feature of the proposed DMD measurement is that it should be less exposed to the Modifiable Areal Unit Problem (MAUP) [@Openshaw1979; @Openshaw1984], which results from zoning a territory for data that were initially nonaggregated.
+As a consequence, zoning estimates are affected by the position and size of the zones under study.
+Zoning construction and the level of spatial resolution could be more or less sophisticated [@Feret2014; @Mouchet2017; @Bareille2020].
+For example, @Bennie2011 introduced a paired-sample version of the Simpson index based on the lag distance between two samples.
+This problem has been widely studied in many fields of research and an approach centered on the entities analyzed has been identified to circumvent the MAUP, e.g., @Arbia1989 in economics and @Jelinski1996 in ecology.
+
+**Second, the methodology proposed in this article fully aligns with existing research that sought to assess space in a more precise manner when measuring biodiversity.** Our method complements studies that have integrated entities' neighborhoods by adopting an approach that is not based on zoning but centered on the entities analyzed.
+Therefore, our method aligns with @Wiegand2007, who used a spatial point process methodological framework, retaining the continuity of distances between geolocalized entities' positions.
+The model, called Individual Species-Area Relationships (ISAR), subtly links the well-known theoretical framework of the Ripley's $K$-function [@Ripley1976; @Ripley1977], combining distance-based measures and the notion of diversity.
+This entity-centered approach enables an analysis of entities' local environments at all distances.
+Although this measure can be used for all distances, in their empirical example, the authors only chose a unique distance of 30 meters to map diversity values for Barro Colorado Island (Panama) and Sinharaja (Sri Lanka) sites.
+Mapping is a useful technique for determining locally observed diversity for a specific distance motivated by a precise research question.[^7]
+
+[^7]: Notably, mapping diversity based on ad hoc zonings can limit the estimation bias associated with MAUP.
+      For example, @Tsai2015 retained a spatial representation for the species richness of woody plants in the Fushan Forest Dynamics Plot near Taiwan using an estimate per 400m^2^, and the ISAR approach was also proposed in the same article, complementing these results.
+
+In the same vein, @Marcon2023 emphasized the usefulness of mapping spatial structures in continuous space with a measure derived from the Ripley's $K$ function that is applicable in a heterogeneous space (not a homogeneous one as for the Ripley's $K$ function).
+This measure, called the *M* function, is applied to a case of a contagious disease that affects maple trees in a Parisian park.
+This function is not linked to the concept of diversity in the article but that of spatial concentration.
+While the average environment can be described for each distance, a focus on specific distances reveals interactions between the entities analyzed and characterizes spatial structures of concentration or dispersion.
+
+The continuous approach for assessing diversity proposed in this study is not based on the ISAR method or graph theory, e.g., @Rajala2012, but on entropy measures centered on the entities analyzed.
+Consequently, our approach also aligns with research examining the spatialization of entropy indices.
+For example, @Shimatani2001 proposed *distance-dependent Simpson indices* to examine the level of diversity around entities for a distance *r*; however, no local mapping of values was proposed, and an interpretation of diversity values was not presented.
+The spatialization of the Shannon index was also investigated since @Batty1974, and @Altieri2018 provide an overview of this literature.
+Some contributions have been proposed considering zoning territory [@Boroushaki2017] and individual-centered analysis.
+For example, @Reardon2004 defined local estimation of entropy around an entity for socioeconomic purposes.
+
+**Finally, our methodology offers the possibility to accurately understand the meaning of the local diversity results observed.** As we previously emphasized, no intuitive interpretation of the Shannon or Simpson entropy is available.
+Our approach, based on the Hill numbers, fills that gap for the richness, Shannon and Simpson biodiversity indices.
+The interpretation of the biodiversity results is crucial.
+For example, biodiversity measurements are essential for decision makers, as indicators provide decision-making tools for public policy development [@Bellora2020; @Bureau2020].
+Accurately measuring biodiversity and making its results intelligible is essential for the biodiversity analysis to estimate the costs associated with biodiversity erosion and restoration [@Turbelin2023].
+Moreover, local diversity can be obtained via the DMD with a thin representation of the diversity levels.
+Mapping local diversity results is a way to reach this objective.
+In summary, proposing the unified DMD analysis framework that enables local representation of diversity at distance, regardless of the entropy measure chosen, with results that can be easily interpreted.
+We present the methodology adopted for that purpose in the next section.
+
+## DMD as a first-class instrument for measuring biodiversity {#GeneralRemarks}
+
+First, we demonstrate that **continuous diversity measures enable precise evaluation of local diversity.** The high variability of the local measurement in our empirical example verifies the importance of using a continuous approach when measuring biodiversity.
+An evaluation of park-level biodiversity can be informative but is insufficient for addressing processes that can occur at smaller scales.
+The economic stakes associated with biodiversity are enormous and the importance of developing statistical tools for accurate measurement has been intensely examined [@Cognie2020; @Strange2024].
+The analysis developed in this study contributes to improving biodiversity evaluation.
+Moreover, geolocalized environmental data are becoming increasingly available.
+Consequently, if geolocalized data are available, we recommend retaining a continuous approach toward space.
+Treating space as a collection of spatial units faces many challenges that have been summarized by the MAUP.
+The key point is that aggregating spatial data erases particularities that are precisely what we seek to reveal.
+As we emphasize, biodiversity measurement is a first step in the overall analysis and estimates should be precise and unbiased.
+DMD offers this possibility.
+
+Second, **the proposed *divent* R package enables the calculation of the DMD.** The continuous calculation and mapping of diversity for the *Parc des Buttes Chaumont* only takes a few dozen seconds on a personal computer, depending on its performance.
+This computation time is considerably longer than park-wide, but remains tractable for quite large datasets.
+
+Finally, as DMD is powerful for measuring biodiversity, **the definition of the local diversity should be carefully motivated.** The distance at which the evaluation is conducted and the definition of the biodiversity chosen really matter.
+As a consequence, a precise motivation for the order of diversity used and the distance chosen is highly recommended for any analysis.
+Therefore, economic theory should be mobilized and developed to address this concern in future research endeavors.
+This warning is exactly the same when using a distance-based method to measure spatial concentration [@Marcon2017].
+
+
+## Potential applications {#ways}
+
+This study opens the way to numerous applications of DMD in environmental economics.
+Our methodology can be easily integrated and developed in economic models that include environmental variables.
+The advantage is that local biodiversity can be evaluated within the framework of a continuous space, regardless of the geographic scale chosen.
+For example, consider hedonic price models for properties.
+The local biodiversity level may be one of the characteristics that explains properties' price.
+Indeed, studies have demonstrated that properties' environmental characteristics are an important consideration.
+For example, a lake or ocean view and quality have a positive effect on property price [@Brookshire1982; @Sirmans2005].
+This is also applicable to the presence of trees in cities [see @Sander2010 for a review].
+The significance of local biodiversity can be evaluated using DMD.
+
+Another research method could be integrating DMD into recreational ecosystem services models.
+A more accurate treatment of space in the biodiversity measurement should enrich the actual evaluation of advantages provided by nature that has constituted a real and significant challenge for economists [@IPBES2019; @IPBES2023].
+For example, evaluating biodiversity at the forest or park scale requires an external perspective.
+The DMD framework offers a complementary approach to existing methods by evaluating diversity at the local rather than global level.
+As @Reardon2004, @Shimatani2001 or @Wiegand2007, DMD applies biodiversity measurement from an internal perspective around any entity analyzed (e.g., trees) within any distance.
+This entity-centered approach introduces a new technique for investigating biodiversity.
+We present the following illustrative case for clarity. 
+Consider a walker who strolls around an urban park or a forest.
+DMD enables the estimation of biodiversity perceived by this walker along the path.
+Biodiversity can be evaluated at a distance of 10–20 meters; for example, on the path and along the path if the view is unobstructed or lesser.
+An economic analysis may then be proposed, based on the local biodiversity estimates perceived from the chosen path.
+Such results can contribute to evaluating local recreational ecosystem services for walkers along the paths in the park.
+The interest of combining highly detailed diversity estimation and mapping has been previously demonstrated for evaluating ecosystem services (e.g., @Hauck2013; @Tardieu2019; @Suchocka2023).
+The resulting map can provide easily understandable information on the diversity level in any point of the area examined.
+Therefore, this economic statistical development aligns with @Pena2015, who emphasized that *"[...] maps are valuable representations of real conditions and very powerful tools for communicating complex data and information"* for ecosystem services.
+Finally, it is logical that comparisons of results across time would be informative for policymakers to quantify local biodiversity variations more accurately; for instance, within a city or in particular areas.
+Local maps can be easily generated to identify areas with low or high biodiversity levels.
+
+# Conclusion {#Conclusion}
+
+This study introduces a new technique for measuring biodiversity at the local scale.
+The DMD is developed in a continuous-space framework for measuring local diversity using Hill numbers.
+The new R package *divent* supports the diversity measurement calculation.
+
+This study proposes the first empirical application on trees in a Parisian park to demonstrate the advantages of DMD for measuring biodiversity.
+DMD offers a useful approach for researchers, particularly those engaged in environmental economics.
+This method provides a clear visualization of the biodiversity of the area studied.
+Furthermore, DMD offer a simple framework for providing precise diversity results that are comparable for any scale of observation, without any statistical bias.
+
+DMD may be extended straightforwardly to phylogenetic and functional diversities, by incorporating distances between species (in ecology) or sectors of activity (in economics) based on a phylogeny or functional features in the definition of diversity.
+
+
+# Appendix {-}
+
+R code is available at the following address:\ 
+XXXX
+
+<!-- Flo : Lien à intégrer une fois papier finalisé -->
+
+# Acknowledgments {-}
+
+This research was conducted when Florence Puech was visiting Paris-Saclay Applied Economics (PSAE; INRAE-AgroParisTech).
+She gratefully acknowledges the financial support from INRAE and the Université Paris-Saclay MERR program.
+Eric Marcon was supported by labex CEBA, ANR-10-LABX-0025.
+Both authors are grateful for helpful comments received from seminar and conference participants, including the Spatial Econometrics and Statistics workshop (SEW), AFSE, and the seminar of the Department of Geography of the University of California in Santa Barbara.
+
+# Conflict of interest {-}
+
+On behalf of all authors, the corresponding author states that there is no conflict of interest.
+
+# CRediT authorship contribution statement {-} 
+
+* **Eric Marcon:** Conceptualization, Data curation, Formal analysis, Funding acquisition, Investigation, Methodology, Project administration, Resources, Software, Supervision, Validation, Visualization, Writing.
+
+* **Florence Puech:** Conceptualization, Data curation, Formal analysis, Funding acquisition, Investigation, Methodology, Project administration, Resources, Software, Supervision, Validation, Visualization, Writing.
+
+
+`r if (!knitr:::is_latex_output()) '# References {-}'`
