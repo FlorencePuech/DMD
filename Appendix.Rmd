@@ -32,14 +32,14 @@ always_allow_html: yes
 preamble: >
   \usepackage[letterpaper]{geometry}
 output:
-  rmdformats::downcute:
-    use_bookdown: yes
-    lightbox: yes
-    toc_depth: 3
   bookdown::pdf_book:
     citation_package: natbib
     latex_engine: xelatex
     keep_tex: no
+  rmdformats::downcute:
+    use_bookdown: yes
+    lightbox: yes
+    toc_depth: 3
 ---
 
 
@@ -120,7 +120,7 @@ A local Google map of the park is available at the following address: https://ma
 
 
 All empirical results are based on data freely available on Paris open data (https://opendata.paris.fr).
-In the article, information on trees is extracted from the database "Arbres, Direction des Espaces Verts et de l'Environnement - Ville de Paris" (under license ODbL) in  in February 2025.
+In the article, information on trees is extracted from the database "Arbres, Direction des Espaces Verts et de l'Environnement - Ville de Paris" (under license ODbL) in February 2025.
 
 
 # Descriptive statistics on the distribution of trees in the *Parc des Buttes Chaumont*
@@ -335,7 +335,7 @@ The local tree diversity (Hill numbers) in the *Parc des Buttes Chaumont* is giv
 We only choose two distances to evaluate the local biodiversity of trees species: 
 
 - 5 meters: local maps are given in the first column,
-- 25 meters: local maps are given in the first column.
+- 25 meters: local maps are given in the second column.
 
 For both distances, we provide three orders of diversity:
 
