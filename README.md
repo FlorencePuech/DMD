@@ -15,3 +15,10 @@ Formats:
 
 - [HTML](https://FlorencePuech.github.io/DMD/MP_DMD.html)
 - [PDF](https://FlorencePuech.github.io/DMD/MP_DMD.pdf)
+
+
+Appendix:
+
+- [HTML](https://FlorencePuech.github.io/DMD/Appendix.html)
+- [PDF](https://FlorencePuech.github.io/DMD/Appendix.pdf)
+
