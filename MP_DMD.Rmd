@@ -768,17 +768,15 @@ DMD may be extended straightforwardly to phylogenetic and functional diversities
 
 # Appendix {-}
 
-R code is available at the following address:\ 
-XXXX
-
-<!-- Flo : Lien à intégrer une fois papier finalisé -->
+R code is available at the following address:
+<https://florencepuech.github.io/DMD/Appendix.pdf>
 
 # Acknowledgments {-}
 
 This research was conducted when Florence Puech was visiting Paris-Saclay Applied Economics (PSAE; INRAE-AgroParisTech).
 She gratefully acknowledges the financial support from INRAE and the Université Paris-Saclay MERR program.
 Eric Marcon was supported by labex CEBA, ANR-10-LABX-0025.
-Both authors are grateful for helpful comments received from seminar and conference participants, including the Spatial Econometrics and Statistics workshop (SEW), AFSE, and the seminar of the Department of Geography of the University of California in Santa Barbara.
+Both authors are grateful for helpful comments received from seminar and conference participants, including the Spatial Econometrics and Statistics workshop (SEW), AFSE, FAERE, and the seminar of the Department of Geography of the University of California in Santa Barbara.
 
 # Conflict of interest {-}
 
