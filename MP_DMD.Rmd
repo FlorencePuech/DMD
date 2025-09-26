@@ -30,7 +30,7 @@ keywords:
 - Parisian trees
 - Hill numbers
 journalinfo: Working paper
-archive: "`r format(Sys.time(), '%B %d, %Y')`"
+archive: "September 2025"
 url: https://FlorencePuech.github.io/DMD/
 github-repo: FlorencePuech/DMD
 lang: "en-US"
