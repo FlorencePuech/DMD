@@ -132,7 +132,7 @@ In this study, we select the following characteristics on trees:
 
 - the exact location (coordinates are then converted in Lambert93 projection),
 - the species (*"espece"* in French),
-- the genius (*"genre"* in French),
+- the genus (*"genre"* in French),
 - the circumference of the trunk, used to calculate the basal area of trees.
 
 
