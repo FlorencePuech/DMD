@@ -6,7 +6,7 @@ author:
 - name: Florence Puech
   authsuperscript: "2 \\orcidlink{0000-0002-5279-6878}"
 corrauthor:
-  email: "florence.puech@universite-paris-saclay.fr"
+  email: "florence.puech@inrae.fr"
 affiliation:
 - affsuperscript: 1
   dptuniv: "AgroParisTech, UMR Amap, Univ. Montpellier, Cirad, CNRS, INRAE, IRD, Montpellier, France."
