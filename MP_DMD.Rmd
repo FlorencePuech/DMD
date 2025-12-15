@@ -216,7 +216,6 @@ As @Marcon2019 argued, the information function can be understood as a quantity 
 If a species is rare (e.g., $p_s$ is small), the quantity of information for that outcome is high, and as a consequence, $I(p_s)$ is high.
 In contrast, if some species are abundant, the quantity of surprise associated with its outcome is low, as is the information function.
 The Shannon entropy index is defined as the average information given by all possible outcomes of the experience as follows:
-
 \begin{equation}
   \sum_s{p_s \ln\frac{1}{p_s}}
   (\#eq:shannon)
@@ -342,6 +341,7 @@ For example, if we are examining a contagious disease that spreads between trees
 **Step 2: Choosing the order of diversity.** This choice determines the value of $q$ for the Hill number.
 One decision rule is the importance assigned to rare or abundant species.
 If the researcher wants to treat all species in the same way, *q=1* is a reasonable choice in ecology (e.g., see the discussion in @Roswell2021 on this point).
+More generally, this step depends on a certain number of "value judgments" [@Baumgartner2006; @Baumgartner2007] that should be clearly motivated for each study. 
 
 **Step 3: Visualizing the results.** Mapping the calculated Hill numbers is highly convenient for illustrating all results.
 Therefore, we proceed as follows.
