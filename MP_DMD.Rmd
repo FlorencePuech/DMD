@@ -150,11 +150,11 @@ set.seed(973)
 Biodiversity and its conservation are a key challenge of contemporary times [@IPBES2019; @IPBES2023], and evaluating biodiversity is the first step for any analysis or policy development.
 Therefore, measuring biodiversity precisely and making its results intelligible is essential for biodiversity analysis and the subsequent estimation of the costs associated with biodiversity erosion [@Turbelin2023].
 Biodiversity covers all forms of living organisms; thus, many different approaches and definitions have been proposed for its evaluation.
-A certain number of biological diversity measures are very well-known and largely used (e.g., the Shannon index or the Simpson index) while others remain quite confidential [@Krebs1999; @Marcon2024].[^1]
+A certain number of biological diversity measures are very well-known and largely used (e.g., the Shannon index or the Simpson index) while others remain quite confidential [@Krebs1999].[^1]
 While previous research has emphasized that diversity measures should be rigorously developed because each indicator responds to a particular definition of diversity, the scale at which diversity has to be evaluated is less discussed. 
 Diversity level has generally been estimated within a predefined zone; for example, plots in forests [@Broadent2008] or regions such as the French Small Agricultural Regions [@Donfouet2017; @Cocco2023].
 To the best of our knowledge, no approach has been developed to simultaneously assess local diversity (*i*) for any distance of an environment analyzed and (*ii*) for any chosen definition of diversity.
-This study fills the gap by providing a new class of indicators called Diversity Measures at Distance (DMD), which are based on the Hill numbers [@Hill1973] and make it possible to interpret diversity results regardless of the entropy measure used.
+This study fills the gap by providing a new class of indices called Diversity Measures at Distance (DMD), which are based on the Hill numbers [@Hill1973] and make it possible to interpret diversity results regardless of the entropy measure used.
 The **divent** R package [@divent2025] offers simple DMD computation and explicit mapping of local diversity.
 
 [^1]: In our study, the term "biodiversity" is used when diversity concerns a topic directly related to biology or ecology, and the term "diversity" is retained otherwise.
@@ -182,7 +182,7 @@ In Section 5, we conclude by highlighting the utility of the DMD for environmen
 
 # Diversity indices: a review of the most common diversity indices {#review}
 
-Numerous diversity measures coexist in previous research [@Marcon2024].
+Numerous diversity measures coexist in previous research [@Baumgartner2006].
 Some are well-known and applied in many applications and others remain quite confidential.
 The richness, the Shannon index, and the Simpson index are among the best known and most widely used to evaluate biodiversity.
 In this section, we present and discuss these three indices.
@@ -212,7 +212,7 @@ The minimum value of rarity is 1, which is obtained if only one species is prese
 The maximum value is reached when species *s* is rare, in which case, $p_s$ is extremely small and rarity tends toward infinity.
 The logarithm of rarity is the Shannon information function denoted as $I(p_s)$, which decreases when $p_s$ increases.
 If $p_s$ tends toward zero, then the information tends toward infinity and it takes a value of 0 if $p_s$ equals to 1.
-As @Marcon2019 argued, the information function can be understood as a quantity of surprise.
+As Shannon argued, the information function can be understood as a quantity of surprise.
 If a species is rare (e.g., $p_s$ is small), the quantity of information for that outcome is high, and as a consequence, $I(p_s)$ is high.
 In contrast, if some species are abundant, the quantity of surprise associated with its outcome is low, as is the information function.
 The Shannon entropy index is defined as the average information given by all possible outcomes of the experience as follows:
@@ -271,7 +271,7 @@ Special values of *q* define *orders* of entropy as follows:
 - If *q=1*, the generalized entropy is simply Shannon's entropy, denoted as $^{1}H$.
 - If *q=2*, we obtain a value $1-\sum_s{{p_s}^2}$ in equation \@ref(eq:meandeform), which is the Simpson index, denoted as $^{2}H$.
 
-These three *q* values are the most used, but are not exclusive [@Baumgartner2007; @Marcon2019].
+These three *q* values are the most used, but are not exclusive [@Baumgartner2007].
 Equation \@ref(eq:meandeform) defines the entropy of order *q* as the average information from individual observations, where the information is a deformed logarithm of species rarity.
 Parameter *q* can be understood as the instrument for assigning more or less importance to rare species.
 Small values emphasize them, where a species with a single individual counts for 1 in richness (*q=0*), not less than a species that encompasses all individuals but 1: in this example richness is 2.
@@ -316,7 +316,7 @@ A series of remarks can be drawn from this short presentation of the most tradit
 **Diversity can be evaluated in multiple ways.** Different concepts of diversity can be explored, resulting in different measurements.
 As a consequence, using one given index should thus be carefully considered, e.g., see @Dickman1968, @Peet1974 or more recently, @Morris2014, @Nagendra2002.
 Diversity indices should always be motivated by the research question under study, as is the case for any quantitative indices [@Marcon2017].
-Here, we only consider species-neutral measures of diversity, ignoring species' identity and considering them equally different, in contrast to phylogenetic [@Marcon2014b] or functional [@Leinster2012] diversity that consider dissimilarity but are beyond our scope.
+Here, we only consider species-neutral measures of diversity, ignoring species' identity and considering them equally different, in contrast to phylogenetic [@Vellend2010] or functional [@Leinster2012] diversity that consider dissimilarity but are beyond our scope.
 Therefore, the choice of one specific diversity index is only driven by the importance assigned to rare species.
 Species richness is a central measure for conservation purposes while Simpson's diversity is a better tool for assessing community functioning, e.g., carbon storage, driven by a dominant species [@Liang2016].
 
