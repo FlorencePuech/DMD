@@ -155,7 +155,7 @@ While previous research has emphasized that diversity measures should be rigorou
 Diversity level has generally been estimated within a predefined zone; for example, plots in forests [@Broadent2008] or regions such as the French Small Agricultural Regions [@Donfouet2017; @Cocco2023].
 To the best of our knowledge, no approach has been developed to simultaneously assess local diversity (*i*) for any distance of an environment analyzed and (*ii*) for any chosen definition of diversity.
 This study fills the gap by providing a new class of indices called Diversity Measures at Distance (DMD), which are based on the Hill numbers [@Hill1973] and make it possible to interpret diversity results regardless of the entropy measure used.
-The **divent** R package [@divent2025] offers simple DMD computation and explicit mapping of local diversity.
+The **divent** R package [@divent2025; @Marcon2026] offers simple DMD computation and explicit mapping of local diversity.
 
 [^1]: In our study, the term "biodiversity" is used when diversity concerns a topic directly related to biology or ecology, and the term "diversity" is retained otherwise.
 
@@ -350,7 +350,7 @@ We then calculate the estimated Hill numbers around each entity by taking the ex
 We then apply a spatial smoothing of values to plot them across the area for visualization, using the *Smooth.ppp()* function of the R package Spatstat, [@Baddeley2005].
 We employ Gaussian kernel smoothing with the bandwidth as defined by @Scott1992.
 We recommend the use of contour lines that identify similar values to Hill numbers' estimates.
-We then use the new R package (divent) to compute DMD [@divent2025].
+We then use the new R package (divent) to compute DMD [@divent2025; @Marcon2026].
 This R package facilitates researchers' use of R code to calculate DMD and visualize their results.
 
 # Empirical application on trees in the *Parc des Buttes Chaumont* (Paris) {#Application}
